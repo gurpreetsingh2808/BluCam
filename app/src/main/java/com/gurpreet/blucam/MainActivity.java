@@ -21,12 +21,14 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.gurpreet.blucam.components.dialog.DialogManager;
+import com.gurpreet.blucam.components.toast.ToastManager;
 import com.gurpreet.blucam.connection.ClientThread;
 import com.gurpreet.blucam.connection.ServerThread;
 import com.gurpreet.blucam.constants.ToastConstants;
 import com.gurpreet.blucam.ui.adapter.AvailableDevicesAdapter;
 import com.gurpreet.blucam.util.BluetoothUtil;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -47,21 +49,40 @@ public class MainActivity extends AppCompatActivity implements AvailableDevicesA
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             Log.e(TAG, "onReceive: action " + action);
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                mDeviceList.add(device);
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
+            switch (action) {
+                case BluetoothDevice.ACTION_FOUND:
+                    // Discovery has found a device. Get the BluetoothDevice
+                    // object and its info from the Intent.
+                    BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                    mDeviceList.add(device);
+                    String deviceName = device.getName();
+                    String deviceHardwareAddress = device.getAddress(); // MAC address
 
-                Log.d(TAG, "onReceive: device name " + deviceName);
-                Log.d(TAG, "onReceive: device mac address " + deviceHardwareAddress);
-            } else if (ACTION_DISCOVERY_STARTED.equals(action)) {
-                Log.d(TAG, "onReceive: discovery started");
-            } else if (ACTION_DISCOVERY_FINISHED.equals(action)) {
-                Log.d(TAG, "onReceive: discovery stopped");
-                DialogManager.showBluetoothDevicesDialog(MainActivity.this, MainActivity.this, mDeviceList);
+                    Log.d(TAG, "onReceive: device name " + deviceName);
+                    Log.d(TAG, "onReceive: device mac address " + deviceHardwareAddress);
+                    break;
+                case ACTION_DISCOVERY_STARTED:
+                    Log.d(TAG, "onReceive: discovery started");
+                    break;
+                case ACTION_DISCOVERY_FINISHED:
+                    Log.d(TAG, "onReceive: discovery stopped");
+                    DialogManager.showBluetoothDevicesDialog(MainActivity.this, MainActivity.this, mDeviceList);
+                    break;
+                case BluetoothDevice.ACTION_BOND_STATE_CHANGED:
+                    final int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR);
+                    final int prevState	= intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.ERROR);
+
+                    if (state == BluetoothDevice.BOND_BONDED && prevState == BluetoothDevice.BOND_BONDING) {
+                        ToastManager.showToast(ToastConstants.DEVICE_PAIRED);
+                    } else if (state == BluetoothDevice.BOND_NONE && prevState == BluetoothDevice.BOND_BONDED){
+                        ToastManager.showToast(ToastConstants.DEVICE_UNPAIRED);
+                    }
+                    break;
+                case BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED:
+                    final int changedState = intent.getIntExtra(BluetoothAdapter.EXTRA_CONNECTION_STATE, BluetoothDevice.ERROR);
+                    if(changedState == 0) {
+                        ToastManager.showToast(ToastConstants.DEVICE_DISCONNECTED);
+                    }
             }
         }
     };
@@ -109,14 +130,14 @@ public class MainActivity extends AppCompatActivity implements AvailableDevicesA
                 initializeReceiver();
 
             } else if (resultCode == RESULT_CANCELED) {
-                Toast.makeText(this, ToastConstants.ERR_ENABLING_BLETOOTH, Toast.LENGTH_SHORT).show();
+                ToastManager.showToast(ToastConstants.ERR_ENABLING_BLETOOTH);
             }
         } else {
             if (resultCode == DISCOVERABLE_DURATION) {
                 Log.d(TAG, "onActivityResult: discoverable request code matched " + requestCode);
-                Toast.makeText(this, "Device is now discoverable", Toast.LENGTH_SHORT).show();
+                ToastManager.showToast(ToastConstants.DEVICE_DISCOVERABLE);
             } else if (resultCode == RESULT_CANCELED) {
-                Toast.makeText(this, ToastConstants.ERR_DISCOVERING_BLUETOOTH, Toast.LENGTH_SHORT).show();
+                ToastManager.showToast(ToastConstants.ERR_DISCOVERING_BLUETOOTH);
             }
         }
     }
@@ -127,6 +148,7 @@ public class MainActivity extends AppCompatActivity implements AvailableDevicesA
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         registerReceiver(mReceiver, filter);
     }
 
@@ -208,7 +230,32 @@ public class MainActivity extends AppCompatActivity implements AvailableDevicesA
     }
 
     @Override
-    public void onItemClick(BluetoothDevice item, int position) {
+    public void onItemClick(BluetoothDevice device, int position) {
         Log.d(TAG, "onItemClick: ");
+        if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
+            unpairDevice(device);
+        } else {
+            Toast.makeText(this, ToastConstants.PAIRING, Toast.LENGTH_SHORT).show();
+            pairDevice(device);
+        }
+    }
+
+    private void pairDevice(BluetoothDevice device) {
+        try {
+            Method method = device.getClass().getMethod("createBond", (Class[]) null);
+            method.invoke(device, (Object[]) null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void unpairDevice(BluetoothDevice device) {
+        try {
+            Method method = device.getClass().getMethod("removeBond", (Class[]) null);
+            method.invoke(device, (Object[]) null);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
