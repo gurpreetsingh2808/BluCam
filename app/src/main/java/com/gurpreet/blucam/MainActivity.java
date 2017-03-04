@@ -24,18 +24,23 @@ import com.gurpreet.blucam.components.dialog.DialogManager;
 import com.gurpreet.blucam.connection.ClientThread;
 import com.gurpreet.blucam.connection.ServerThread;
 import com.gurpreet.blucam.constants.ToastConstants;
+import com.gurpreet.blucam.ui.adapter.AvailableDevicesAdapter;
 import com.gurpreet.blucam.util.BluetoothUtil;
+
+import java.util.ArrayList;
+import java.util.Map;
 
 import static android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED;
 import static android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_STARTED;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements AvailableDevicesAdapter.ItemListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_ENABLE_BT = 1001;
     private static final int DISCOVERABLE_DURATION = 300;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1002;
     BluetoothAdapter mBluetoothAdapter;
+    private ArrayList<BluetoothDevice> mDeviceList = new ArrayList<BluetoothDevice>();
 
     // Create a BroadcastReceiver for ACTION_FOUND.
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -46,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
                 // Discovery has found a device. Get the BluetoothDevice
                 // object and its info from the Intent.
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                mDeviceList.add(device);
                 String deviceName = device.getName();
                 String deviceHardwareAddress = device.getAddress(); // MAC address
 
@@ -55,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "onReceive: discovery started");
             } else if (ACTION_DISCOVERY_FINISHED.equals(action)) {
                 Log.d(TAG, "onReceive: discovery stopped");
+                DialogManager.showBluetoothDevicesDialog(MainActivity.this, MainActivity.this, mDeviceList);
             }
         }
     };
@@ -191,11 +198,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startDiscoveringDevices() {
+        mDeviceList.clear();
         if(mBluetoothAdapter.isDiscovering()) {
             mBluetoothAdapter.cancelDiscovery();
         }
         mBluetoothAdapter.startDiscovery();
         //BluetoothClass.Device device = BluetoothDevice.get
         //new ClientThread(device, mBluetoothAdapter).run();
+    }
+
+    @Override
+    public void onItemClick(BluetoothDevice item, int position) {
+        Log.d(TAG, "onItemClick: ");
     }
 }
