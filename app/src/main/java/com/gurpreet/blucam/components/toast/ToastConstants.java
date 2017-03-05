@@ -1,4 +1,4 @@
-package com.gurpreet.blucam.constants;
+package com.gurpreet.blucam.components.toast;
 
 /**
  * Created by Gurpreet on 04-03-2017.
@@ -14,6 +14,10 @@ public class ToastConstants {
     public static final String DEVICE_PAIRED = "Device paired successfully";
     public static final String DEVICE_UNPAIRED = "Device unpaired successfully";
     public static final String DEVICE_DISCONNECTED = "Device disconnected";
+    public static final String DEVICE_NOT_CONNECTED = "Device not connected";
+    public static final String BLUETOOTH_DISABLED = "Bluetooth is disabled. Leaving...";
+    public static final String DEVICE_CONNECTED = "Device connected";
+    public static final String ENABLED_BLETOOTH = "Bluetooth enabled";
 
     //  public static final String
     //  public static final String

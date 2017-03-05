@@ -5,7 +5,6 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.support.v4.app.ActivityCompat;
 
-import com.gurpreet.blucam.constants.DialogConstants;
 
 /**
  * Created by Gurpreet on 04-03-2017.

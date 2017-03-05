@@ -6,8 +6,6 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.gurpreet.blucam.R;
@@ -83,7 +81,6 @@ public class AvailableDevicesAdapter extends RecyclerView.Adapter<AvailableDevic
         }
 
         public void setData(final BluetoothDevice item) {
-
             this.item = item;
             tvDeviceName.setText(item.getName());
         }

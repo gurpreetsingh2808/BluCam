@@ -4,10 +4,11 @@
 
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <!--    To access the hardware identifiers of nearby external devices via Bluetooth and Wi-Fi scans,
-    your app must now have the ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION permissions   -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-
+    <!--
+    To access the hardware identifiers of nearby external devices via Bluetooth and Wi-Fi scans,
+    your app must now have the ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION permissions
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:name=".BlucamApplication"
@@ -16,13 +17,19 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".MainActivity">
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ui.activity.BluetoothCamActivity"
+            android:screenOrientation="portrait" />
+        <activity android:name=".ui.activity.DeviceListActivity"></activity>
     </application>
 
 </manifest>
