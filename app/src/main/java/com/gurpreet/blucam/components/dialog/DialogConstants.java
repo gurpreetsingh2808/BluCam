@@ -1,4 +1,4 @@
-package com.gurpreet.blucam.constants;
+package com.gurpreet.blucam.components.dialog;
 
 /**
  * Created by Gurpreet on 04-03-2017.
@@ -22,6 +22,5 @@ public class DialogConstants {
     public static final String OK = "OK";
     public static final String CANCEL = "CANCEL";
 
-    //  public static final String
 
 }

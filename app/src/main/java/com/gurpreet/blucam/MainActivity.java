@@ -3,7 +3,6 @@ package com.gurpreet.blucam;
 import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -17,14 +16,19 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.Toast;
 
 import com.gurpreet.blucam.components.dialog.DialogManager;
-import com.gurpreet.blucam.connection.ClientThread;
-import com.gurpreet.blucam.connection.ServerThread;
-import com.gurpreet.blucam.constants.ToastConstants;
+import com.gurpreet.blucam.components.toast.ToastManager;
+import com.gurpreet.blucam.components.toast.ToastConstants;
+import com.gurpreet.blucam.service.BluetoothService;
+import com.gurpreet.blucam.ui.activity.BluetoothCamActivity;
+import com.gurpreet.blucam.ui.activity.DeviceListActivity;
+import com.gurpreet.blucam.ui.adapter.AvailableDevicesAdapter;
 import com.gurpreet.blucam.util.BluetoothUtil;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 
 import static android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED;
 import static android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_STARTED;
@@ -35,26 +39,61 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_ENABLE_BT = 1001;
     private static final int DISCOVERABLE_DURATION = 300;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1002;
+    private static final int REQUEST_CONNECT_DEVICE_SECURE = 1;
+    // Return Intent extra
+    public static String EXTRA_DEVICE_ADDRESS = "device_address";
     BluetoothAdapter mBluetoothAdapter;
+    private ArrayList<BluetoothDevice> mDeviceList = new ArrayList<BluetoothDevice>();
+    private String deviceAddress;
+    private BluetoothService mBluService = null;
+
 
     // Create a BroadcastReceiver for ACTION_FOUND.
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             Log.e(TAG, "onReceive: action " + action);
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
+            switch (action) {
+                case BluetoothDevice.ACTION_FOUND:
+                    // Discovery has found a device. Get the BluetoothDevice
+                    // object and its info from the Intent.
+                    BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                    mDeviceList.add(device);
+                    String deviceName = device.getName();
+                    String deviceHardwareAddress = device.getAddress(); // MAC address
 
-                Log.d(TAG, "onReceive: device name " + deviceName);
-                Log.d(TAG, "onReceive: device mac address " + deviceHardwareAddress);
-            } else if (ACTION_DISCOVERY_STARTED.equals(action)) {
-                Log.d(TAG, "onReceive: discovery started");
-            } else if (ACTION_DISCOVERY_FINISHED.equals(action)) {
-                Log.d(TAG, "onReceive: discovery stopped");
+                    Log.d(TAG, "onReceive: device name " + deviceName);
+                    Log.d(TAG, "onReceive: device mac address " + deviceHardwareAddress);
+                    break;
+                case ACTION_DISCOVERY_STARTED:
+                    Log.d(TAG, "onReceive: discovery started");
+                    break;
+                case ACTION_DISCOVERY_FINISHED:
+                    Log.d(TAG, "onReceive: discovery stopped");
+                    break;
+                case BluetoothDevice.ACTION_BOND_STATE_CHANGED:
+                    final int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR);
+                    final int prevState	= intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.ERROR);
+
+                    if (state == BluetoothDevice.BOND_BONDED && prevState == BluetoothDevice.BOND_BONDING) {
+                        ToastManager.showToast(ToastConstants.DEVICE_PAIRED);
+                        startActivity(new Intent(MainActivity.this, BluetoothCamActivity.class));
+
+                    } else if (state == BluetoothDevice.BOND_NONE && prevState == BluetoothDevice.BOND_BONDED){
+                        ToastManager.showToast(ToastConstants.DEVICE_UNPAIRED);
+                    }
+                    break;
+                case BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED:
+                    final int changedState = intent.getIntExtra(BluetoothAdapter.EXTRA_CONNECTION_STATE, BluetoothDevice.ERROR);
+                    Log.e(TAG, "onReceive: changed state "+changedState);
+                    if(changedState == 0) {
+                        ToastManager.showToast(ToastConstants.DEVICE_DISCONNECTED);
+                    }
+                    ///////////////   NO USE HERE
+                    else if(changedState == 2) {
+                        ToastManager.showToast(ToastConstants.DEVICE_CONNECTED);
+
+                    }
             }
         }
     };
@@ -79,16 +118,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
-
-    @Override
-    public void onPause() {
-        if (mBluetoothAdapter != null) {
-            if (mBluetoothAdapter.isDiscovering()) {
-                mBluetoothAdapter.cancelDiscovery();
-            }
-        }
-        super.onPause();
-    }
+///////////////////////////////////////////////////////////////////////////////////////
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -99,19 +129,22 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_ENABLE_BT) {
             if (resultCode == Activity.RESULT_OK) {
                 Log.d(TAG, "onActivityResult: request code matched " + requestCode);
+                ToastManager.showToast(ToastConstants.ENABLED_BLETOOTH);
                 initializeReceiver();
 
             } else if (resultCode == RESULT_CANCELED) {
-                Toast.makeText(this, ToastConstants.ERR_ENABLING_BLETOOTH, Toast.LENGTH_SHORT).show();
+                ToastManager.showToast(ToastConstants.ERR_ENABLING_BLETOOTH);
             }
-        } else {
-            if (resultCode == DISCOVERABLE_DURATION) {
-                Log.d(TAG, "onActivityResult: discoverable request code matched " + requestCode);
-                Toast.makeText(this, "Device is now discoverable", Toast.LENGTH_SHORT).show();
-            } else if (resultCode == RESULT_CANCELED) {
-                Toast.makeText(this, ToastConstants.ERR_DISCOVERING_BLUETOOTH, Toast.LENGTH_SHORT).show();
+        } else if (requestCode == REQUEST_CONNECT_DEVICE_SECURE) {
+            // When DeviceListActivity returns with a device to connect
+            if (resultCode == Activity.RESULT_OK) {
+                Intent i = new Intent(MainActivity.this, BluetoothCamActivity.class);
+                String address = data.getExtras().getString(MainActivity.EXTRA_DEVICE_ADDRESS);
+                i.putExtra(EXTRA_DEVICE_ADDRESS, address);
+                startActivity(i);
             }
         }
+
     }
 
     private void initializeReceiver() {
@@ -120,14 +153,10 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         registerReceiver(mReceiver, filter);
     }
 
-    private void makeBluetoothDiscoverable() {
-        Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_DURATION);
-        startActivity(discoverableIntent);
-    }
 
     @Override
     protected void onDestroy() {
@@ -182,20 +211,40 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case R.id.buttonListen:
-                makeBluetoothDiscoverable();
-                ///if(!BluetoothUtil.isDevicePaired(mBluetoothAdapter)) {
-                ////}
-                ////new ServerThread(mBluetoothAdapter).run();
+                BluetoothUtil.makeBluetoothDiscoverable(this, DISCOVERABLE_DURATION);
+                startActivity(new Intent(MainActivity.this, BluetoothCamActivity.class));
                 break;
         }
     }
 
     private void startDiscoveringDevices() {
+       /* mDeviceList.clear();
         if(mBluetoothAdapter.isDiscovering()) {
             mBluetoothAdapter.cancelDiscovery();
         }
         mBluetoothAdapter.startDiscovery();
-        //BluetoothClass.Device device = BluetoothDevice.get
-        //new ClientThread(device, mBluetoothAdapter).run();
+        */
+        // Launch the DeviceListActivity to see devices and do scan
+        Intent serverIntent = new Intent(this, DeviceListActivity.class);
+        startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE_SECURE);
+    }
+
+    private void pairDevice(BluetoothDevice device) {
+        try {
+            Method method = device.getClass().getMethod("createBond", (Class[]) null);
+            method.invoke(device, (Object[]) null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void unpairDevice(BluetoothDevice device) {
+        try {
+            Method method = device.getClass().getMethod("removeBond", (Class[]) null);
+            method.invoke(device, (Object[]) null);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
